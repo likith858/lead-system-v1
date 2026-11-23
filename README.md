@@ -52,7 +52,7 @@ n8n (self-hosted) · Google Sheets · Gmail · JavaScript (Code nodes) · Luxon 
 2. **Import the workflows**: in n8n, create a workflow → ⋯ → Import from file → choose each `.json` file.
 3. **Connect accounts**: Google Sheets, Google Sheets Trigger and Gmail (each node shows which one it needs).
 4. **Point to your sheet**: in every Google Sheets node, pick your sheet (replaces `YOUR_LEADS_SHEET_ID`). The weekly report also reads an "Ad Results" tab (`YOUR_AD_RESULTS_SHEET_ID`).
-5. **Set email addresses**: replace `owner@example.com` and `counsellor@example.com`.
+5. **Set email addresses**: replace `counsellor@example.com` (new-lead and uncontacted alerts), `owner@example.com` (weekly report) and `admin@example.com` (failure alerts, usually the person who maintains the system).
 6. **Fill the placeholders** in square brackets (institute name, mentor name, batch date, venue).
 7. **Set the error workflow**: in each workflow's Settings, choose "Error Alerts" as the Error workflow.
 8. **Test with fake data only**, then publish.
