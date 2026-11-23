@@ -1,0 +1,325 @@
+{
+  "name": "Weekly Lead Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e340b3c6-44d1-4fd9-87c8-c1beb6c2a9c4",
+      "name": "Every Monday 9am"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_LEADS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "fa8864d5-9f63-4fe9-9ee2-6fa6b1a544ac",
+      "name": "Read Leads",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst now = DateTime.now().setZone('Asia/Kolkata');\nconst since = now.minus({ days: 7 });\n\n// keep only leads created in the last 7 days\nconst recent = rows.filter(r => {\n  const d = DateTime.fromFormat(String(r.created_at || ''), 'dd MMM yyyy, HH:mm', { zone: 'Asia/Kolkata' });\n  return d.isValid && d >= since;\n});\n\n// count leads by any column, e.g. source or status\nconst countBy = (key) => recent.reduce((acc, r) => {\n  const k = String(r[key] || '').trim() || 'Unknown';\n  acc[k] = (acc[k] || 0) + 1;\n  return acc;\n}, {});\n\nconst toRows = (obj) => Object.keys(obj).length === 0\n  ? '<tr><td style=\"padding:4px 12px\" colspan=\"2\">No leads this week</td></tr>'\n  : Object.entries(obj)\n      .sort((a, b) => b[1] - a[1])\n      .map(([k, v]) => `<tr><td style=\"padding:4px 12px\">${k}</td><td style=\"padding:4px 12px\">${v}</td></tr>`)\n      .join('');\n\nreturn [{ json: {\n  total: recent.length,\n  joined: recent.filter(r => String(r.status).trim().toLowerCase() === 'joined').length,\n  sourceRows: toRows(countBy('source')),\n  statusRows: toRows(countBy('status')),\n  period: `${since.toFormat('dd MMM')} – ${now.toFormat('dd MMM yyyy')}`\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "efe69976-1939-4774-8d4f-2487ca331dd4",
+      "name": "Build Report"
+    },
+    {
+      "parameters": {
+        "sendTo": "owner@example.com",
+        "subject": "=Weekly report: {{ $('Build Report').first().json.total }} new leads ({{ $('Build Report').first().json.period }})",
+        "message": "=<p>Hi [Owner name],</p>\n<p>Here is your lead summary for <b>{{ $('Build Report').first().json.period }}</b>.</p>\n\n<p><b>New leads:</b> {{ $('Build Report').first().json.total }} &nbsp;·&nbsp; <b>Joined a batch:</b> {{ $('Build Report').first().json.joined }}</p>\n\n<p><b>Where leads came from</b></p>\n<table border=\"1\" style=\"border-collapse:collapse;font-family:Arial;font-size:14px\">\n  <tr style=\"background:#e6f2ef\"><td style=\"padding:4px 12px\"><b>Source</b></td><td style=\"padding:4px 12px\"><b>Leads</b></td></tr>\n  {{ $('Build Report').first().json.sourceRows }}\n</table>\n\n<p><b>Lead status</b></p>\n<table border=\"1\" style=\"border-collapse:collapse;font-family:Arial;font-size:14px\">\n  <tr style=\"background:#e6f2ef\"><td style=\"padding:4px 12px\"><b>Status</b></td><td style=\"padding:4px 12px\"><b>Leads</b></td></tr>\n  {{ $('Build Report').first().json.statusRows }}\n</table>\n\n<p><b>Money this week</b></p>\n<table border=\"1\" style=\"border-collapse:collapse;font-family:Arial;font-size:14px\">\n  <tr><td style=\"padding:4px 12px\">Spent on ads</td><td style=\"padding:4px 12px\"><b>{{ $('Pick money numbers').first().json.spend }}</b></td></tr>\n  <tr><td style=\"padding:4px 12px\">Cost per enquiry</td><td style=\"padding:4px 12px\"><b>{{ $('Pick money numbers').first().json.cpl }}</b></td></tr>\n  <tr><td style=\"padding:4px 12px\">Enquiries who booked a review</td><td style=\"padding:4px 12px\"><b>{{ $('Pick money numbers').first().json.bookedRate }}</b></td></tr>\n  <tr><td style=\"padding:4px 12px\">Cost per student who joined</td><td style=\"padding:4px 12px\"><b>{{ $('Pick money numbers').first().json.costPerJoined }}</b></td></tr>\n</table>\n\n<p>Reply to this email if you'd like to go through any of these numbers together.</p>\n<p>Likith D</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "1f5af7d7-5cef-4e5d-972a-fdd0a9caf89c",
+      "name": "Email Report",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_LEADS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 501,
+          "mode": "list",
+          "cachedResultName": "Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "time": "={{ $now.setZone('Asia/Kolkata').toFormat('d MMM yyyy, HH:mm') }}",
+            "event": "Weekly report sent",
+            "details": "={{ $('Build Report').first().json.total }} leads · {{ $('Pick money numbers').first().json.cpl }} per enquiry",
+            "status": "OK",
+            "workflow": "Weekly Lead Report"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "d3f29240-2dc5-4b3e-9fb0-016a01726278",
+      "name": "Log report",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_AD_RESULTS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Copy Bank"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1032001,
+          "mode": "list",
+          "cachedResultName": "Ad Results"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRangeA1",
+              "range": "A4:D23"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        0
+      ],
+      "id": "ca7b7cc2-5edd-4e9a-8733-8ef60deaed53",
+      "name": "Read Ad Results",
+      "executeOnce": true,
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Find a row by the start of its Metric name and turn its Total into a number\nconst rows = $input.all().map(i => i.json);\nconst total = (name) => {\n  const row = rows.find(r => String(r.Metric || '').startsWith(name));\n  if (!row || row.Total === '' || row.Total == null) return null;\n  const n = Number(String(row.Total).replace(/[₹,%\\s]/g, ''));\n  return isNaN(n) ? null : n;\n};\n\n// 2. Format numbers the way a client reads them\nconst rupees = (n, decimals = 0) =>\n  n === null ? 'not available'\n  : '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });\nconst percent = (n) =>\n  n === null ? 'not available'\n  : (n <= 1 ? n * 100 : n).toFixed(1) + '%';\n\n// 3. The 4 money numbers for the email\nreturn [{\n  json: {\n    spend: rupees(total('Spend')),\n    cpl: rupees(total('CPL'), 1),\n    bookedRate: percent(total('Booked rate')),\n    costPerJoined: rupees(total('Cost per joined')),\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "id": "371c0394-bb76-4ea5-b13d-b2cbc7e4670c",
+      "name": "Pick money numbers"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Monday 9am": {
+      "main": [
+        [
+          {
+            "node": "Read Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Leads": {
+      "main": [
+        [
+          {
+            "node": "Build Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report": {
+      "main": [
+        [
+          {
+            "node": "Read Ad Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Report": {
+      "main": [
+        [
+          {
+            "node": "Log report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Ad Results": {
+      "main": [
+        [
+          {
+            "node": "Pick money numbers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick money numbers": {
+      "main": [
+        [
+          {
+            "node": "Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveDataErrorExecution": "all"
+  },
+  "nodeGroups": [],
+  "tags": []
+}

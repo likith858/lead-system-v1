@@ -1,0 +1,247 @@
+{
+  "name": "Uncontacted Lead Alert",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f618728c-2e50-4479-a495-3ddca90a243d",
+      "name": "Every Hour"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_LEADS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a3ec96bf-19d9-4bdf-856a-01192898c8d6",
+      "name": "Read Leads",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "counsellor@example.com",
+        "subject": "={{ $json.count }} lead(s) waiting over 1 hour",
+        "message": "=<p>These leads haven't been contacted yet:</p> <ul>{{ $json.rows }}</ul> <p>Please reply on WhatsApp now, then update their status in the Leads sheet so this reminder stops.</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "45e677ec-109f-4475-88b0-3459bd52f2c3",
+      "name": "Alert counsellor",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "gmailOAuth2": {
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = DateTime.now().setZone('Asia/Kolkata');\n\n// only alert during working hours (9 am – 9 pm)\nif (now.hour < 9 || now.hour >= 21) return [];\n\nconst overdue = $input.all().map(i => i.json).filter(r => {\n  if (String(r.status || '').trim().toLowerCase() !== 'new') return false;\n  const d = DateTime.fromFormat(String(r.created_at || ''), 'd MMM yyyy, HH:mm', { zone: 'Asia/Kolkata' });\n  if (!d.isValid) return false;\n  const mins = now.diff(d, 'minutes').minutes;\n  return mins >= 60 && mins <= 24 * 60;   // waiting 1–24 hours\n});\n\n// nothing overdue → stop here, no email\nif (overdue.length === 0) return [];\n\nconst rows = overdue.map(r =>\n  `<li><b>${r.name}</b> · ${r.phone} · ${r.course || ''} · waiting since ${r.created_at} · ` +\n  `<a href=\"https://wa.me/91${r.phone}\">WhatsApp now</a></li>`\n).join('');\n\nreturn [{ json: { count: overdue.length, rows } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b4928b30-637c-41b7-b286-49dda8de07ca",
+      "name": "Find Overdue Leads"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_LEADS_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Leads"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 501,
+          "mode": "list",
+          "cachedResultName": "Log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "time": "={{ $now.setZone('Asia/Kolkata').toFormat('d MMM yyyy, HH:mm') }}",
+            "workflow": "Uncontacted Lead Alert",
+            "event": "Alert sent",
+            "details": "={{ $('Find Overdue Leads').first().json.count }} lead(s) waiting",
+            "status": "OK"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow",
+              "displayName": "workflow",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "event",
+              "displayName": "event",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "details",
+              "displayName": "details",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        0
+      ],
+      "id": "7b701541-9b5b-4340-a46c-c2543f5a0e46",
+      "name": "Append row in sheet",
+      "retryOnFail": true,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Read Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Leads": {
+      "main": [
+        [
+          {
+            "node": "Find Overdue Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Overdue Leads": {
+      "main": [
+        [
+          {
+            "node": "Alert counsellor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert counsellor": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveDataErrorExecution": "all"
+  },
+  "nodeGroups": [],
+  "tags": []
+}
